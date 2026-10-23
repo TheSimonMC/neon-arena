@@ -3,12 +3,12 @@ const el=id=>document.getElementById(id),c=el('c');
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const COLORS=[[.14,1,.94],[1,.12,.59]];
 const walls=[
- {x:-24,y:-24,w:1048,h:24,z:62,outer:true},{x:-24,y:640,w:1048,h:24,z:62,outer:true},
- {x:-24,y:0,w:24,h:640,z:62,outer:true},{x:1000,y:0,w:24,h:640,z:62,outer:true},
- {x:210,y:86,w:150,h:34,z:45},{x:210,y:120,w:34,h:106,z:45},
- {x:640,y:86,w:150,h:34,z:45},{x:756,y:120,w:34,h:106,z:45},
- {x:210,y:414,w:34,h:106,z:45},{x:210,y:520,w:150,h:34,z:45},
- {x:756,y:414,w:34,h:106,z:45},{x:640,y:520,w:150,h:34,z:45},
+ {x:-24,y:-24,w:1048,h:24,z:78,outer:true},{x:-24,y:640,w:1048,h:24,z:78,outer:true},
+ {x:-24,y:0,w:24,h:640,z:78,outer:true},{x:1000,y:0,w:24,h:640,z:78,outer:true},
+ {x:210,y:86,w:150,h:34,z:62},{x:210,y:120,w:34,h:106,z:62},
+ {x:640,y:86,w:150,h:34,z:62},{x:756,y:120,w:34,h:106,z:62},
+ {x:210,y:414,w:34,h:106,z:62},{x:210,y:520,w:150,h:34,z:62},
+ {x:756,y:414,w:34,h:106,z:62},{x:640,y:520,w:150,h:34,z:62},
  {x:470,y:286,w:60,h:68,z:30}
 ];
 let pc,ch,role='host',mode='idle',keys={},mouse={x:500,y:320,down:false},last=0,sendClock=0,bullets=[],sparks=[],scores=[0,0],remoteInput={},remoteState=null,remoteSeen=0;

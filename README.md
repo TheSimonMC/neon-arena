@@ -24,3 +24,16 @@ Repository erstellen und diese Dateien auf den main-Branch übertragen. Unter Se
 
 ## Prüfung
 `node tests/regression.cjs` prüft Spielzustand, Verbindungswechsel, Eingabe-Timeout und Paketvalidierung mit simulierten Browser-APIs. Ein echter Verbindungsaufbau über zwei getrennte Netzwerke muss nach der Bereitstellung separat getestet werden.
+
+## 3D-Version (Protokoll 3)
+Echter WebGL-Renderer mit Perspektive und Tiefenpuffer, dreidimensionalen Gitterwänden und Spieler-Modellen. Ein Postprocessing-Pass erzeugt Bloom, einstellbare Fisheye-Verzerrung, leichte Farbsäume und eine Vignette. Keine externen JavaScript-Abhängigkeiten.
+
+- WASD / Pfeiltasten: Bewegung. Maus: Zielen. Linksklick: Feuern.
+- Space / linke Umschalttaste: Dash (2 Sekunden Abklingzeit).
+- Handy: linker Stick bewegt, rechter Stick zielt und feuert, Blitz-Taste aktiviert Dash.
+- Grüne Stationen heilen 50 HP und laden 12 Sekunden nach. Geschosse prallen einmal ab.
+- Zehn Eliminierungen gewinnen die Runde. Solo-Neustart über R oder den Neustart-Button; online eine neue Host-Sitzung erstellen.
+- Ton ist zunächst ausgeschaltet. FX RUHIG reduziert Partikel und deaktiviert Kamerawackeln und rote Trefferblenden. Die Einstellung berücksichtigt prefers-reduced-motion.
+- Beide Spieler müssen die neue Seite laden und neue Codes austauschen. Alte Verbindungscodes sind inkompatibel.
+
+Regressionstests: `node tests/regression.cjs`. Sie prüfen zusätzlich Dash-Kollisionen, Schaden, Touch-Eingaben im Netzwerkprotokoll, Paket-Reihenfolge, längere Simulation und die inverse Fisheye-Projektion zum Zielen.

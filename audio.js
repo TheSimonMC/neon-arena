@@ -7,26 +7,28 @@ class ArenaAudio{
   try{
    if(!this.ctx){
     const c=this.ctx=new(window.AudioContext||window.webkitAudioContext)();
-    this.master=c.createGain();this.master.gain.value=.72;const limiter=c.createDynamicsCompressor();limiter.threshold.value=-8;limiter.knee.value=10;limiter.ratio.value=8;this.master.connect(limiter);limiter.connect(c.destination);
-    this.musicBus=c.createGain();this.musicBus.gain.value=.24;this.musicBus.connect(this.master);this.fxBus=c.createGain();this.fxBus.gain.value=.5;this.fxBus.connect(this.master);
-    this.engine=new Blackline.Engine({context:c,destination:this.master,masterGain:.34,maxVoices:32});
-    this.emitters=[0,1].map(i=>this.engine.createEmitter({id:'pilot-'+i,weapon:WeaponSystem.defaultId,environment:'hall',room:{rt:.8,wet:.16,early:.26,damping:.6,size:.65,width:.85},distanceModel:'game',rolloff:.5,panningModel:'HRTF',propagation:true,synth:{surface:'concrete',mechanical:.8,casing:.7}}));
-    this.buffers={};for(const name of ['kick','snare','hat','metal','dash','hit','kill','pickup','heal','spawn','bounce'])this.buffers[name]=this.makeBuffer(name);
+    this.master=c.createGain();this.master.gain.value=.82;const limiter=c.createDynamicsCompressor();limiter.threshold.value=-4;limiter.knee.value=10;limiter.ratio.value=5;this.master.connect(limiter);limiter.connect(c.destination);
+    this.musicBus=c.createGain();this.musicBus.gain.value=.14;this.musicBus.connect(this.master);this.fxBus=c.createGain();this.fxBus.gain.value=.5;this.fxBus.connect(this.master);
+    this.engine=new Blackline.Engine({context:c,destination:this.master,masterGain:.62,maxVoices:32});
+    this.emitters=[0,1].map(i=>this.engine.createEmitter({id:'pilot-'+i,weapon:WeaponSystem.defaultId,environment:'hall',room:{rt:.48,wet:.08,early:.16,damping:.6,size:.65,width:.85},distanceModel:'game',rolloff:.5,panningModel:'HRTF',propagation:true,synth:{surface:'concrete',transient:1.3,texture:1.2,body:1.1,gas:.7,mechanical:.85,casing:.5,metalness:.12,brightness:.65}}));
+    this.buffers={};for(const name of ['kick','snare','hat','metal','dash','hit','kill','pickup','heal','spawn','impact','reload','dryfire'])this.buffers[name]=this.makeBuffer(name);
    }
    await this.ctx.resume();this.error='';this.sync();
   }catch(e){this.error='Audio: '+e.message;this.stop();}
  }
  makeBuffer(kind){
-  const c=this.ctx,sr=c.sampleRate,duration=({kick:.3,snare:.2,hat:.055,metal:.32,dash:.3,hit:.11,kill:.6,pickup:.24,heal:.4,spawn:.4,bounce:.08})[kind],b=c.createBuffer(1,Math.ceil(sr*duration),sr),a=b.getChannelData(0);let phase=0,prev=0,seed=417;
-  for(let i=0;i<a.length;i++){const t=i/sr,u=t/duration;seed=(Math.imul(seed,1664525)+1013904223)>>>0;const noise=seed/2147483648-1,high=noise-prev;prev=noise;let v=0;
+  const c=this.ctx,sr=c.sampleRate,duration=({kick:.3,snare:.2,hat:.055,metal:.32,dash:.3,hit:.11,kill:.6,pickup:.18,heal:.4,spawn:.4,impact:.09,reload:.42,dryfire:.055})[kind],b=c.createBuffer(1,Math.ceil(sr*duration),sr),a=b.getChannelData(0);let phase=0,prev=0,low=0,mid=0,seed=417;
+  for(let i=0;i<a.length;i++){const t=i/sr,u=t/duration;seed=(Math.imul(seed,1664525)+1013904223)>>>0;const noise=seed/2147483648-1,high=noise-prev;prev=noise;low+=.045*(noise-low);mid+=.3*(noise-mid);let v=0;
    if(kind==='kick'){phase+=2*Math.PI*(45+115*Math.exp(-t*36))/sr;v=Math.sin(phase)*Math.exp(-t*15)+high*.14*Math.exp(-t*180)}
    else if(kind==='snare')v=(high*.45+Math.sin(t*2*Math.PI*174)*.4)*Math.exp(-t*24);
    else if(kind==='hat')v=high*.35*Math.exp(-t*75);
    else if(kind==='dash')v=noise*.42*Math.sin(Math.PI*u)*Math.sin(t*2*Math.PI*(900-650*u));
-   else if(kind==='kill')v=(noise*.38+Math.sin(t*2*Math.PI*(85-50*u))*.5)*Math.exp(-t*7);
-   else if(kind==='hit')v=(noise*.3+Math.sin(t*2*Math.PI*147)*.4)*Math.exp(-t*38);
-   else if(kind==='pickup'||kind==='heal'||kind==='spawn')v=(Math.sin(t*2*Math.PI*660)+Math.sin(t*2*Math.PI*990)*.35)*.3*Math.exp(-t*14)+(high*.25*Math.exp(-t*90));
-   else v=(Math.sin(t*2*Math.PI*731)*Math.sin(t*2*Math.PI*1139)+high*.2)*.35*Math.exp(-t*(kind==='bounce'?60:17));
+   else if(kind==='kill')v=(low*2.8+(mid-low)*.8)*Math.exp(-t*22);
+   else if(kind==='hit')v=((mid-low)*1.7+low*2+high*.12)*Math.exp(-t*65);
+   else if(kind==='impact')v=((noise-mid)*.7+(mid-low)*1.2)*Math.exp(-t*95);
+   else if(['reload','pickup','dryfire'].includes(kind)){const contacts=kind==='reload'?[[.002,.6,.006],[.085,.3,.012],[.24,.5,.018]]:kind==='pickup'?[[.002,.65,.006],[.065,.5,.008]]:[[.002,.5,.003]];for(const [at,amp,decay]of contacts){const z=t-at;if(z>=0)v+=(high*.4+(mid-low)*1.5+low)*amp*Math.exp(-z/decay)}if(kind==='reload'&&t>.09&&t<.27)v+=(mid-low)*.13*Math.sin(Math.PI*(t-.09)/.18);}
+   else if(kind==='heal'||kind==='spawn')v=(Math.sin(t*2*Math.PI*660)+Math.sin(t*2*Math.PI*990)*.35)*.3*Math.exp(-t*14)+(high*.25*Math.exp(-t*90));
+   else v=(Math.sin(t*2*Math.PI*731)*Math.sin(t*2*Math.PI*1139)+high*.2)*.35*Math.exp(-t*17);
    a[i]=Math.tanh(v*1.4)*Math.min(1,i/(sr*.0015))*Math.min(1,(a.length-i)/(sr*.004));
   }return b;
  }
@@ -44,17 +46,17 @@ class ArenaAudio{
   }
  }
  sync(){if(!this.ctx)return;const run=this.enabled&&this.playing&&!document.hidden;
-  if(!run){this.stop();return}if(this.music&&!this.timer){this.next=this.ctx.currentTime+.04;this.timer=setInterval(()=>this.schedule(),25);this.schedule()}else if(!this.music&&this.timer){clearInterval(this.timer);this.timer=null}this.musicBus.gain.setTargetAtTime(this.music?.24:0,this.ctx.currentTime,.04);
+  if(!run){this.stop();return}if(this.music&&!this.timer){this.next=this.ctx.currentTime+.04;this.timer=setInterval(()=>this.schedule(),25);this.schedule()}else if(!this.music&&this.timer){clearInterval(this.timer);this.timer=null}this.musicBus.gain.setTargetAtTime(this.music?.14:0,this.ctx.currentTime,.04);
  }
  stop(){if(this.timer)clearInterval(this.timer);this.timer=null;for(const n of this.nodes){try{n.stop()}catch{}}this.nodes.clear();this.engine?.stopAll({tails:true});}
  setEnabled(value){this.enabled=value;if(value)this.unlock();else this.stop();}
- update(players,local,playing,dt,blocked){if(this.playing!==playing){this.playing=playing;this.sync()}if(!this.ctx||!this.enabled||!playing||document.hidden)return;this.spatialClock-=dt;if(this.spatialClock>0)return;this.spatialClock=.075;const p=players[local];this.engine.setListener({position:this.position(p),forward:[0,0,-1],up:[0,1,0]});players.forEach((p,i)=>{this.emitters[i].setPosition(this.position(p));this.emitters[i].setOcclusion(i===local?0:blocked(players[local],p)?.35:0)});}
+ update(players,local,playing,dt,blocked){if(this.playing!==playing){this.playing=playing;this.sync()}if(!this.ctx||!this.enabled||!playing||document.hidden)return;this.spatialClock-=dt;if(this.spatialClock>0)return;this.spatialClock=.075;const p=players[local];this.listenerX=p.x;this.listenerY=p.y;this.engine.setListener({position:this.position(p),forward:[0,0,-1],up:[0,1,0]});players.forEach((p,i)=>{this.emitters[i].setPosition(this.position(p));this.emitters[i].setOcclusion(i===local?0:blocked(players[local],p)?.35:0)});}
  position(p){return[(p.x-500)/32,1.6,(p.y-320)/32]}
  event(e){if(!this.ctx||!this.enabled||!this.playing||document.hidden||this.ctx.state!=='running')return;
   try{const t=this.ctx.currentTime+.008;if(e.kind==='shot'){
    if(!WeaponSystem.has(e.weapon)||!this.emitters[e.i])return;const emitter=this.emitters[e.i];emitter.setWeapon(e.weapon);emitter.setPosition(this.position(e));emitter.fire({seed:e.seed>>>0,when:t});if(e.weapon==='mossberg590')emitter.mechanics({seed:(e.seed^0x9e3779b9)>>>0,when:t+.34,gain:.8});
-   const g=this.musicBus.gain;g.cancelScheduledValues(t);g.setValueAtTime(this.music?.15:0,t);g.setTargetAtTime(this.music?.24:0,t+.055,.08);
-  }else if(this.buffers[e.kind])this.sample(e.kind,t,e.kind==='bounce'?.12:.5);
+   const g=this.musicBus.gain;g.cancelScheduledValues(t);g.setValueAtTime(this.music?.065:0,t);g.setTargetAtTime(this.music?.14:0,t+.055,.08);
+  }else if(e.kind==='ready'){if(!WeaponSystem.has(e.weapon)||!this.emitters[e.i])return;const emitter=this.emitters[e.i];emitter.setWeapon(e.weapon);emitter.setPosition(this.position(e));emitter.mechanics({seed:e.seed>>>0,when:t,gain:1.2});}else if(this.buffers[e.kind]){const distance=e.kind==='heal'||e.kind==='spawn'?1:1/(1+Math.hypot(e.x-this.listenerX,e.y-this.listenerY)/350);this.sample(e.kind,t,(e.kind==='impact'?.24:.65)*(Number.isFinite(distance)?distance:1),this.fxBus,.96+((e.id||0)%7)*.013);}
   }catch(err){this.error='BLACKLINE: '+err.message;}
  }
 }

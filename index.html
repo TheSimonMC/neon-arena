@@ -1,0 +1,95 @@
+<!doctype html><html lang="de"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Neon Duel</title><style>body{margin:0;background:#0a1020;color:#dff;font:15px system-ui}main{max-width:1050px;margin:auto;padding:20px}h1{color:#5ef}canvas{width:100%;background:#101d30;border:2px solid #357;border-radius:12px;cursor:crosshair}section{display:grid;grid-template-columns:1fr 280px;gap:16px}aside{background:#17253a;padding:15px;border-radius:12px}textarea{box-sizing:border-box;width:100%;height:90px;background:#091323;color:#bff;border:1px solid #456;border-radius:6px}button{padding:10px;margin:4px 2px;background:#176182;color:white;border:0;border-radius:6px;cursor:pointer}p{color:#bcd}#status{color:#6ef}@media(max-width:750px){section{grid-template-columns:1fr}}</style><main><h1>✦ NEON DUEL</h1><section><div><canvas id="c" width="800" height="500"></canvas><p>WASD bewegen · Maus zielen · Linksklick schießen · R = Solo zurücksetzen</p><p id="score"></p></div><aside><h3>Multiplayer via WebRTC</h3><button id="solo">Solo gegen Bot</button><br><button id="host">Host erstellen</button><button id="guest">Beitreten</button><p>Code des anderen Spielers:</p><textarea id="in" placeholder="Code einfügen"></textarea><button id="apply">Code übernehmen</button><p>Dein Code (an anderen schicken):</p><textarea id="out" readonly></textarea><button id="copy">Kopieren</button><details><summary>Netzwerk / TURN (optional)</summary><p>Bei blockierter Direktverbindung auf beiden Geräten eigene TURN-Zugangsdaten eintragen, dann neu verbinden. Bleiben nur bis zum Neuladen im Speicher.</p><label>TURN-URLs (eine pro Zeile)<textarea id="turnUrls" placeholder="turn:server.example:3478"></textarea></label><label>Benutzername <input id="turnUser" autocomplete="off"></label><label>Passwort <input id="turnPass" type="password" autocomplete="off"></label><label><input id="relayOnly" type="checkbox"> Nur TURN verwenden</label></details><button id="disconnect">Trennen</button><p id="status" role="status" aria-live="polite">Bereit</p><small>Host erstellt Code → Gast fügt ihn ein und übernimmt → Gast schickt Antwortcode → Host übernimmt Antwort. Keine Anmeldung. Verbindung kann je nach Netzwerk scheitern; Gegenüber kann IP-Adresse erfahren.</small></aside></section></main><script>
+const c=document.querySelector('#c'),g=c.getContext('2d'),el=id=>document.getElementById(id);let pc,ch,role='host',mode='idle',keys={},mouse={x:400,y:250,down:false},last=0,sendClock=0,bullets=[],sparks=[],scores=[0,0],remoteInput={},remoteState=null,remoteSeen=0;const walls=[{x:190,y:90,w:85,h:70},{x:520,y:340,w:90,h:70},{x:340,y:195,w:120,h:100}];function player(i){return {x:i?690:110,y:i?400:100,a:0,hp:100,dead:0,cool:0,flash:0}}let ps=[player(0),player(1)];function reset(){ps=[player(0),player(1)];bullets=[];sparks=[];scores=[0,0];remoteState=null;remoteInput={};remoteSeen=0;sendClock=0}function hitwall(x,y,r=15){return x<r+10||y<r+10||x>790-r||y>490-r||walls.some(w=>x+r>w.x&&x-r<w.x+w.w&&y+r>w.y&&y-r<w.y+w.h)}function burst(x,y,color,n=12){for(let i=0;i<n;i++){let a=Math.random()*6.28,v=60+Math.random()*180;sparks.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,t:.5,color})}}function fire(i){let p=ps[i];if(p.cool>0||p.dead>0)return;p.cool=.18;p.flash=.08;bullets.push({x:p.x+Math.cos(p.a)*23,y:p.y+Math.sin(p.a)*23,vx:Math.cos(p.a)*620,vy:Math.sin(p.a)*620,i,t:1.3});burst(p.x+Math.cos(p.a)*24,p.y+Math.sin(p.a)*24,'#ffe36d',5)}function move(i,v,dt){let p=ps[i];if(p.dead>0)return;let x=Number(!!v.right)-Number(!!v.left),y=Number(!!v.down)-Number(!!v.up),m=Math.hypot(x,y)||1;x=x/m*205*dt;y=y/m*205*dt;if(!hitwall(p.x+x,p.y))p.x+=x;if(!hitwall(p.x,p.y+y))p.y+=y;p.a=v.a??p.a;if(v.shoot)fire(i)}function input(i){let p=ps[i];return {up:keys.KeyW,down:keys.KeyS,left:keys.KeyA,right:keys.KeyD,shoot:mouse.down,a:Math.atan2(mouse.y-p.y,mouse.x-p.x)}}function send(o){if(ch?.readyState==='open'&&ch.bufferedAmount<65536){try{ch.send(JSON.stringify(o))}catch{}}}function update(dt){if(!(mode==='online'&&role==='guest'))for(let p of ps){p.cool=Math.max(0,p.cool-dt);p.flash=Math.max(0,p.flash-dt);if(p.dead>0){p.dead-=dt;if(p.dead<=0){let i=ps.indexOf(p),fresh=player(i);Object.assign(p,fresh);burst(p.x,p.y,'#fff',20)}}}if(mode==='solo'){move(0,input(0),dt);let a=ps[0],b=ps[1],dx=a.x-b.x,dy=a.y-b.y,d=Math.hypot(dx,dy);move(1,{left:dx< -90&&d>180,right:dx>90&&d>180,up:dy< -90&&d>180,down:dy>90&&d>180,a:Math.atan2(dy,dx),shoot:d<550},dt)}if(mode==='online'){if(role==='host'){move(0,input(0),dt);move(1,performance.now()-remoteSeen<500?remoteInput:{},dt)}else{if(remoteState){Object.assign(ps[0],remoteState.ps[0]);Object.assign(ps[1],remoteState.ps[1]);bullets=remoteState.bullets;scores=remoteState.scores;remoteState=null}}sendClock+=dt;if(sendClock>.045){sendClock=0;if(role==='host')send({type:'state',ps,bullets,scores});else send({type:'input',v:input(1)})}}if(mode==='solo'||mode==='online'&&role==='host'){for(let j=bullets.length-1;j>=0;j--){let b=bullets[j];b.x+=b.vx*dt;b.y+=b.vy*dt;b.t-=dt;if(b.t<=0||hitwall(b.x,b.y,4)){bullets.splice(j,1);continue}let p=ps[1-b.i];if(p.dead<=0&&Math.hypot(p.x-b.x,p.y-b.y)<18){p.hp-=25;burst(p.x,p.y,b.i?'#ff649b':'#5ef',15);if(p.hp<=0){p.dead=2;scores[b.i]++;burst(p.x,p.y,'#fff',25)}bullets.splice(j,1)}}}for(let j=sparks.length-1;j>=0;j--){let s=sparks[j];s.x+=s.vx*dt;s.y+=s.vy*dt;s.t-=dt;if(s.t<=0)sparks.splice(j,1)}el('score').textContent=`CYAN ${scores[0]} : ${scores[1]} PINK  |  ${mode.toUpperCase()}`}
+function draw(){g.fillStyle='#101b2b';g.fillRect(0,0,800,500);g.strokeStyle='#1a3044';g.lineWidth=1;for(let x=0;x<800;x+=40){g.beginPath();g.moveTo(x,0);g.lineTo(x,500);g.stroke()}for(let y=0;y<500;y+=40){g.beginPath();g.moveTo(0,y);g.lineTo(800,y);g.stroke()}g.strokeStyle='#357a8a';g.lineWidth=5;g.strokeRect(9,9,782,482);for(let w of walls){g.shadowBlur=12;g.shadowColor='#38cfff';g.fillStyle='#244157';g.fillRect(w.x,w.y,w.w,w.h);g.shadowBlur=0;g.strokeStyle='#4b8799';g.lineWidth=2;g.strokeRect(w.x,w.y,w.w,w.h)}for(let b of bullets){g.shadowBlur=15;g.shadowColor='#ffd65b';g.fillStyle='#ffe6a0';g.beginPath();g.arc(b.x,b.y,5,0,7);g.fill()}g.shadowBlur=0;ps.forEach((p,i)=>{if(p.dead>0)return;g.save();g.translate(p.x,p.y);g.rotate(p.a);g.shadowBlur=15;g.shadowColor=i?'#ff649b':'#5ef';g.fillStyle=i?'#ff649b':'#5ef';g.beginPath();g.arc(0,0,17,0,7);g.fill();g.shadowBlur=0;g.fillStyle='#132236';g.fillRect(7,-7,26,14);g.fillStyle=p.flash?'#fff':'#bdf';g.fillRect(27,-4,10,8);g.fillStyle='#102030';g.beginPath();g.arc(0,0,8,0,7);g.fill();g.restore();g.fillStyle='#07101b';g.fillRect(p.x-22,p.y-31,44,6);g.fillStyle=p.hp>30?'#5fa':'#f66';g.fillRect(p.x-22,p.y-31,44*Math.max(0,p.hp)/100,6)});for(let s of sparks){g.globalAlpha=s.t*2;g.fillStyle=s.color;g.fillRect(s.x,s.y,4,4)}g.globalAlpha=1;if(mode==='idle'||mode==='connecting'){g.fillStyle='#081221dd';g.fillRect(0,0,800,500);g.textAlign='center';g.fillStyle='#5ef';g.font='bold 42px system-ui';g.fillText('NEON DUEL',400,220);g.font='18px system-ui';g.fillStyle='#def';g.fillText(mode==='idle'?'Solo starten oder WebRTC verbinden':'Warte auf Verbindung …',400,260);g.textAlign='left'}}function loop(t){let dt=Math.min((t-last)/1000,.04);last=t;update(dt);draw();requestAnimationFrame(loop)}requestAnimationFrame(loop);window.addEventListener('keydown',e=>{if(e.target.matches?.('input,textarea,button'))return;keys[e.code]=true;if(e.code==='KeyR'&&mode==='solo')reset();if(['Space','ArrowUp','ArrowDown'].includes(e.code))e.preventDefault()});window.addEventListener('keyup',e=>keys[e.code]=false);window.addEventListener('blur',()=>{keys={};mouse.down=false});c.addEventListener('mousemove',e=>{let r=c.getBoundingClientRect();mouse.x=(e.clientX-r.left)*800/r.width;mouse.y=(e.clientY-r.top)*500/r.height});c.addEventListener('mousedown',e=>{if(e.button===0)mouse.down=true});window.addEventListener('mouseup',()=>mouse.down=false);
+function status(s){el('status').textContent=s}
+let connectionTimer, disconnectTimer, busy=false;
+function close(){
+ clearTimeout(connectionTimer);clearTimeout(disconnectTimer);
+ const oldCh=ch,oldPc=pc;ch=null;pc=null;
+ if(oldCh){oldCh.onopen=oldCh.onclose=oldCh.onmessage=oldCh.onerror=null;oldCh.close()}
+ if(oldPc){oldPc.onconnectionstatechange=oldPc.ondatachannel=null;oldPc.close()}
+ remoteInput={};remoteState=null;keys={};mouse.down=false;
+}
+function configuration(){
+ const urls=el('turnUrls').value.trim().split(/\s+/).filter(Boolean);
+ if(urls.some(u=>!/^turns?:[^\s]+$/.test(u)))throw Error('TURN-URLs müssen mit turn: oder turns: beginnen');
+ if(el('relayOnly').checked&&!urls.length)throw Error('Für Nur TURN zuerst einen TURN-Server eintragen');
+ const iceServers=[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']}];
+ if(urls.length)iceServers.push({urls,username:el('turnUser').value,credential:el('turnPass').value});
+ return {iceServers,iceTransportPolicy:el('relayOnly').checked?'relay':'all'};
+}
+function setup(kind){
+ const config=configuration();
+ if(typeof RTCPeerConnection==='undefined')throw Error('Dieser Browser unterstützt WebRTC nicht');
+ close();reset();role=kind;mode='connecting';el('out').value='';
+ const peer=new RTCPeerConnection(config);pc=peer;
+ peer.onconnectionstatechange=()=>{
+  if(pc!==peer)return;
+  const state=peer.connectionState;
+  if(state==='connected'){clearTimeout(disconnectTimer);if(ch?.readyState==='open'){mode='online';status('Verbunden! Du spielst '+(role==='host'?'CYAN.':'PINK.'))}}
+  if(state==='disconnected'){remoteInput={};status('Verbindung unterbrochen. Wiederherstellung läuft …');clearTimeout(disconnectTimer);disconnectTimer=setTimeout(()=>{if(pc===peer&&peer.connectionState==='disconnected')fail()},10000)}
+  if(state==='failed')fail();
+ };
+ peer.ondatachannel=e=>{if(pc===peer)wire(e.channel,peer)};
+ if(kind==='host')wire(peer.createDataChannel('game',{ordered:false,maxRetransmits:0}),peer);
+ return peer;
+}
+function fail(){close();mode='idle';status('Verbindung fehlgeschlagen. Neu verbinden; bei blockierter Direktverbindung TURN auf beiden Geräten eintragen.')}
+function armTimeout(peer){clearTimeout(connectionTimer);connectionTimer=setTimeout(()=>{if(pc===peer&&ch?.readyState!=='open')fail()},45000)}
+function validState(d){
+ const finite=(o,fields)=>o&&fields.every(k=>Number.isFinite(o[k]));
+ return Array.isArray(d.ps)&&d.ps.length===2&&d.ps.every(p=>finite(p,['x','y','a','hp','dead','cool','flash']))&&Array.isArray(d.bullets)&&d.bullets.length<=200&&d.bullets.every(b=>finite(b,['x','y','vx','vy','i','t'])&&(b.i===0||b.i===1))&&Array.isArray(d.scores)&&d.scores.length===2&&d.scores.every(n=>Number.isSafeInteger(n)&&n>=0);
+}
+function wire(channel,peer){
+ if(ch&&ch!==channel){channel.close();return}ch=channel;
+ channel.onopen=()=>{if(pc!==peer)return;clearTimeout(connectionTimer);mode='online';status('Verbunden! Du spielst '+(role==='host'?'CYAN.':'PINK.'))};
+ channel.onclose=()=>{if(pc===peer){close();mode='idle';status('Verbindung geschlossen.')}};
+ channel.onerror=()=>{if(pc===peer)fail()};
+ channel.onmessage=e=>{
+  if(pc!==peer||typeof e.data!=='string'||e.data.length>100000)return;
+  try{const d=JSON.parse(e.data);if(!d)return;
+   if(role==='host'&&d.type==='input'&&d.v&&Number.isFinite(d.v.a)){remoteInput={up:!!d.v.up,down:!!d.v.down,left:!!d.v.left,right:!!d.v.right,shoot:!!d.v.shoot,a:d.v.a};remoteSeen=performance.now()}
+   if(role==='guest'&&d.type==='state'&&validState(d))remoteState=d;
+  }catch{}
+ };
+}
+async function waitIce(peer){
+ if(peer.iceGatheringState==='complete')return;
+ await new Promise((resolve,reject)=>{
+  const timer=setTimeout(()=>{cleanup();reject(Error('ICE-Zeitüberschreitung. Netzwerk oder TURN-Einstellungen prüfen und neu verbinden.'))},20000);
+  function cleanup(){clearTimeout(timer);peer.removeEventListener('icegatheringstatechange',check);peer.removeEventListener('connectionstatechange',check)}
+  function check(){if(peer.connectionState==='closed'){cleanup();reject(Error('Verbindung abgebrochen'))}else if(peer.iceGatheringState==='complete'){cleanup();resolve()}}
+  peer.addEventListener('icegatheringstatechange',check);peer.addEventListener('connectionstatechange',check);check();
+ });
+}
+async function action(work){
+ if(busy)return;busy=true;['host','guest','apply'].forEach(id=>el(id).disabled=true);
+ try{await work()}catch(e){status('Fehler: '+e.message)}finally{busy=false;['host','guest','apply'].forEach(id=>el(id).disabled=false)}
+}
+el('host').onclick=()=>action(async()=>{
+ const peer=setup('host');el('in').value='';status('Host-Code wird vorbereitet …');
+ await peer.setLocalDescription(await peer.createOffer());await waitIce(peer);if(pc!==peer)return;
+ el('out').value=JSON.stringify(peer.localDescription);status('Host-Code an Gast schicken. Danach dessen Antwort übernehmen.');
+});
+el('guest').onclick=()=>action(async()=>{setup('guest');status('Host-Code einfügen und übernehmen.');});
+el('apply').onclick=()=>action(async()=>{
+ const raw=el('in').value.trim();if(raw.length>100000)throw Error('Code zu lang');
+ const d=JSON.parse(raw);if(!d||!['offer','answer'].includes(d.type)||typeof d.sdp!=='string'||!d.sdp.startsWith('v=0'))throw Error('Ungültiger Verbindungscode');
+ if(!pc&&d.type==='offer')setup('guest');
+ const peer=pc;if(!peer)throw Error('Zuerst Host erstellen oder ein Host-Angebot einfügen');
+ if(role==='guest'){
+  if(d.type!=='offer')throw Error('Gast braucht den Host-Code');
+  if(peer.remoteDescription)throw Error('Für ein neues Angebot zuerst Beitreten klicken');
+  await peer.setRemoteDescription(d);await peer.setLocalDescription(await peer.createAnswer());await waitIce(peer);if(pc!==peer)return;
+  el('out').value=JSON.stringify(peer.localDescription);status('Antwortcode an Host schicken.');
+ }else{
+  if(d.type!=='answer'||peer.signalingState!=='have-local-offer')throw Error('Host braucht die Antwort auf seinen aktuellen Code');
+  await peer.setRemoteDescription(d);if(pc!==peer)return;status('Antwort übernommen. Verbindung wird aufgebaut …');
+ }
+ armTimeout(peer);
+});
+el('solo').onclick=()=>{close();reset();mode='solo';status('Solo gestartet.')};
+el('disconnect').onclick=()=>{close();mode='idle';el('in').value='';el('out').value='';status('Getrennt.')};
+el('copy').onclick=async()=>{if(!el('out').value){status('Zuerst einen Verbindungscode erstellen.');return}try{await navigator.clipboard.writeText(el('out').value);status('Code kopiert.')}catch{el('out').select();status('Code markieren und manuell kopieren.')}};
+window.addEventListener('pagehide',close);
+</script></html>

@@ -37,3 +37,5 @@ Echter WebGL-Renderer mit Perspektive und Tiefenpuffer, dreidimensionalen Gitter
 - Beide Spieler müssen die neue Seite laden und neue Codes austauschen. Alte Verbindungscodes sind inkompatibel.
 
 Regressionstests: `node tests/regression.cjs`. Sie prüfen zusätzlich Dash-Kollisionen, Schaden, Touch-Eingaben im Netzwerkprotokoll, Paket-Reihenfolge, längere Simulation und die inverse Fisheye-Projektion zum Zielen.
+
+Ohne WebGL nutzt das Spiel automatisch eine Software-Projektion derselben 3D-Geometrie mit Neon-Glow. Shader-Bloom und chromatische Aberration bleiben dem WebGL-Modus vorbehalten.

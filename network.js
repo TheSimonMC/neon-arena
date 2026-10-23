@@ -16,7 +16,7 @@ function configuration(){
  return {iceServers,iceTransportPolicy:el('relayOnly').checked?'relay':'all'};
 }
 function setup(kind){
- const config=configuration();
+ gameAudio.unlock();const config=configuration();
  if(typeof RTCPeerConnection==='undefined')throw Error('Dieser Browser unterstützt WebRTC nicht');
  close();reset();role=kind;mode=kind==='host'?'preparing':'waiting';el('out').value='';
  const peer=new RTCPeerConnection(config);pc=peer;
@@ -36,7 +36,7 @@ function fail(){close();mode='idle';status('Verbindung fehlgeschlagen. Neu verbi
 function armTimeout(peer){clearTimeout(connectionTimer);connectionTimer=setTimeout(()=>{if(pc===peer&&ch?.readyState!=='open')fail()},45000)}
 function validState(d){
  const finite=(o,fields)=>o&&fields.every(k=>Number.isFinite(o[k]));
- return Array.isArray(d.ps)&&d.ps.length===2&&d.ps.every(p=>finite(p,['x','y','a','hp','dead','cool','flash','dash','dashCd','inv']))&&Array.isArray(d.bullets)&&d.bullets.length<=200&&d.bullets.every(b=>finite(b,['x','y','vx','vy','i','t'])&&(b.i===0||b.i===1))&&Array.isArray(d.scores)&&d.scores.length===2&&d.scores.every(n=>Number.isSafeInteger(n)&&n>=0);
+ return Array.isArray(d.ps)&&d.ps.length===2&&d.ps.every(p=>finite(p,['x','y','a','hp','dead','cool','flash','dash','dashCd','inv'])&&WeaponSystem.has(p.weapon)&&Number.isSafeInteger(p.pickupSeen))&&Array.isArray(d.bullets)&&d.bullets.length<=200&&d.bullets.every(b=>finite(b,['x','y','vx','vy','i','t'])&&(b.i===0||b.i===1))&&Array.isArray(d.weaponDrops)&&d.weaponDrops.length<=5&&d.weaponDrops.every(w=>finite(w,['x','y','ttl'])&&Number.isSafeInteger(w.id)&&WeaponSystem.has(w.weapon)&&w.x>=0&&w.x<=1000&&w.y>=0&&w.y<=640)&&Array.isArray(d.scores)&&d.scores.length===2&&d.scores.every(n=>Number.isSafeInteger(n)&&n>=0);
 }
 function wire(channel,peer){
  if(ch&&ch!==channel){channel.close();return}ch=channel;
@@ -45,8 +45,8 @@ function wire(channel,peer){
  channel.onerror=()=>{if(pc===peer)fail()};
  channel.onmessage=e=>{
   if(pc!==peer||typeof e.data!=='string'||e.data.length>100000)return;
-  try{const d=JSON.parse(e.data);if(!d||d.protocol!==3||!Number.isSafeInteger(d.seq)||d.seq<=lastRemoteSeq)return;lastRemoteSeq=d.seq;
-   if(role==='host'&&d.type==='input'&&d.v&&Number.isFinite(d.v.a)){remoteInput={up:!!d.v.up,down:!!d.v.down,left:!!d.v.left,right:!!d.v.right,shoot:!!d.v.shoot,a:d.v.a,dash:!!d.v.dash,mx:Number.isFinite(d.v.mx)?clamp(d.v.mx,-1,1):undefined,my:Number.isFinite(d.v.my)?clamp(d.v.my,-1,1):undefined};remoteSeen=performance.now()}
+  try{const d=JSON.parse(e.data);if(!d||d.protocol!==4||!Number.isSafeInteger(d.seq)||d.seq<=lastRemoteSeq)return;lastRemoteSeq=d.seq;
+   if(role==='host'&&d.type==='input'&&d.v&&Number.isFinite(d.v.a)){remoteInput={pickupRequest:Number.isSafeInteger(d.v.pickupRequest)&&d.v.pickupRequest>=0?d.v.pickupRequest:0,up:!!d.v.up,down:!!d.v.down,left:!!d.v.left,right:!!d.v.right,shoot:!!d.v.shoot,a:d.v.a,dash:!!d.v.dash,mx:Number.isFinite(d.v.mx)?clamp(d.v.mx,-1,1):undefined,my:Number.isFinite(d.v.my)?clamp(d.v.my,-1,1):undefined};remoteSeen=performance.now()}
    if(role==='guest'&&d.type==='state'&&validState(d))remoteState=d;
   }catch{}
  };
@@ -71,13 +71,13 @@ async function action(work){
 el('host').onclick=()=>action(async()=>{
  const peer=setup('host');el('in').value='';status('Host-Code wird vorbereitet …');
  await peer.setLocalDescription(await peer.createOffer());await waitIce(peer);if(pc!==peer)return;
- mode='waiting';el('out').value=JSON.stringify({...JSON.parse(JSON.stringify(peer.localDescription)),gameVersion:3});status('Host bereit. 1. Deinen Code an den Gast schicken. 2. Gast übernimmt ihn und schickt seine Antwort. 3. Antwort hier einfügen und übernehmen.');
+ mode='waiting';el('out').value=JSON.stringify({...JSON.parse(JSON.stringify(peer.localDescription)),gameVersion:4,engineSignature:WeaponSystem.signature});status('Host bereit. 1. Deinen Code an den Gast schicken. 2. Gast übernimmt ihn und schickt seine Antwort. 3. Antwort hier einfügen und übernehmen.');
 });
 el('guest').onclick=()=>action(async()=>{setup('guest');status('Host-Code einfügen und übernehmen.');});
 el('apply').onclick=()=>action(async()=>{
  const raw=el('in').value.trim();if(raw.length>100000)throw Error('Code zu lang');
  const d=JSON.parse(raw);if(!d||!['offer','answer'].includes(d.type)||typeof d.sdp!=='string'||!d.sdp.startsWith('v=0'))throw Error('Ungültiger Verbindungscode');
- if(d.gameVersion!==3)throw Error('Unterschiedliche Spielversion. Beide Seiten neu laden und neue Codes erstellen.');
+ if(d.gameVersion!==4||d.engineSignature!==WeaponSystem.signature)throw Error('Unterschiedliche Spielversion. Beide Seiten neu laden und neue Codes erstellen.');
  requireCandidates(d);
  if(!pc&&d.type==='offer')setup('guest');
  const peer=pc;if(!peer)throw Error('Zuerst Host erstellen oder ein Host-Angebot einfügen');
@@ -85,7 +85,7 @@ el('apply').onclick=()=>action(async()=>{
   if(d.type!=='offer')throw Error('Gast braucht den Host-Code');
   if(peer.remoteDescription)throw Error('Für ein neues Angebot zuerst Beitreten klicken');
   mode='preparing';status('Antwortcode wird erstellt …');await peer.setRemoteDescription(d);await peer.setLocalDescription(await peer.createAnswer());await waitIce(peer);if(pc!==peer)return;
-  mode='waiting';el('out').value=JSON.stringify({...JSON.parse(JSON.stringify(peer.localDescription)),gameVersion:3});status('Antwort bereit: Deinen Code an den Host schicken. Erst wenn er ihn übernimmt, beginnt das Spiel.');
+  mode='waiting';el('out').value=JSON.stringify({...JSON.parse(JSON.stringify(peer.localDescription)),gameVersion:4,engineSignature:WeaponSystem.signature});status('Antwort bereit: Deinen Code an den Host schicken. Erst wenn er ihn übernimmt, beginnt das Spiel.');
   if(peer.connectionState==='connecting'){mode='connecting';armTimeout(peer)}
  }else{
   if(d.type!=='answer'||peer.signalingState!=='have-local-offer')throw Error('Host braucht die Antwort auf seinen aktuellen Code');

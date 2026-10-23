@@ -25,7 +25,7 @@ Repository erstellen und diese Dateien auf den main-Branch übertragen. Unter Se
 ## Prüfung
 `node tests/regression.cjs` prüft Spielzustand, Verbindungswechsel, Eingabe-Timeout und Paketvalidierung mit simulierten Browser-APIs. Ein echter Verbindungsaufbau über zwei getrennte Netzwerke muss nach der Bereitstellung separat getestet werden.
 
-## 3D-Version (Protokoll 3)
+## 3D-Version (Protokoll 4)
 Echter WebGL-Renderer mit Perspektive und Tiefenpuffer, dreidimensionalen Gitterwänden und Spieler-Modellen. Ein Postprocessing-Pass erzeugt Bloom, einstellbare Fisheye-Verzerrung, leichte Farbsäume und eine Vignette. Keine externen JavaScript-Abhängigkeiten.
 
 - WASD / Pfeiltasten: Bewegung. Maus: Zielen. Linksklick: Feuern.
@@ -33,9 +33,24 @@ Echter WebGL-Renderer mit Perspektive und Tiefenpuffer, dreidimensionalen Gitter
 - Handy: linker Stick bewegt, rechter Stick zielt und feuert, Blitz-Taste aktiviert Dash.
 - Grüne Stationen heilen 50 HP und laden 12 Sekunden nach. Geschosse prallen einmal ab.
 - Zehn Eliminierungen gewinnen die Runde. Solo-Neustart über R oder den Neustart-Button; online eine neue Host-Sitzung erstellen.
-- Ton ist zunächst ausgeschaltet. FX RUHIG reduziert Partikel und deaktiviert Kamerawackeln und rote Trefferblenden. Die Einstellung berücksichtigt prefers-reduced-motion.
+- Ton startet nach dem Start-Klick. TON und MUSIK sind separat schaltbar. FX RUHIG reduziert Partikel und deaktiviert Kamerawackeln und rote Trefferblenden. Die Einstellung berücksichtigt prefers-reduced-motion.
 - Beide Spieler müssen die neue Seite laden und neue Codes austauschen. Alte Verbindungscodes sind inkompatibel.
 
 Regressionstests: `node tests/regression.cjs`. Sie prüfen zusätzlich Dash-Kollisionen, Schaden, Touch-Eingaben im Netzwerkprotokoll, Paket-Reihenfolge, längere Simulation und die inverse Fisheye-Projektion zum Zielen.
 
 Ohne WebGL nutzt das Spiel automatisch eine Software-Projektion derselben 3D-Geometrie mit Neon-Glow. Shader-Bloom und chromatische Aberration bleiben dem WebGL-Modus vorbehalten.
+
+## BLACKLINE + Waffen
+Alle 18 Profile aus BLACKLINE 0.3.0 sind verfügbar. Goldene Waffen spawnen zufällig, ein Shuffle-Bag berücksichtigt jedes Profil vor Wiederholung. E oder die Touch-Taste nimmt eine nahe Waffe auf (52 Spieleinheiten). Sie ersetzt die aktuelle Waffe vollständig; die alte verschwindet. Kein Inventar. Die ausgerüstete Waffe bleibt beim Respawn erhalten. Der Host entscheidet über Drops, Treffer und Wechsel. E-Anfragen werden nummeriert, damit Paketverlust keine kurzen Tastendrücke verschluckt und doppelte Pakete nicht zweimal wechseln.
+
+`vendor/blackline.js` enthält ausschließlich das unveränderte Engine-Script aus dem bereitgestellten HTML, mit Original-Lizenzhinweis. `docs/BLACKLINE_API.md` ist die mitgelieferte API-Dokumentation. `weapons.js` enthält das davon getrennte Arcade-Balancing. Neue Katalogeinträge erhalten automatisch ein Standard-Balancing und erscheinen im Spawn-Bag. Schaden und Feuerrate sind Spielregeln, keine realistischen Waffendaten.
+
+`audio.js` ist der Integrationsadapter: zwei wiederverwendete Emitter, echte Live-Synthese pro Schuss, identische Seeds pro Netzwerkereignis, räumliche Entfernung, einfache Deckungsdämpfung und kurzer Hall (0,8 s / 16 % wet). Die Pump-Mechanik der Mossberg wird separat geplant. Kein Sample-Ersatz für Schüsse. Musik und UI-Effekte sind original prozedural erzeugt: 116 BPM, Industrial-Drums, metallische Percussion, verzerrte Bass-Sequenzen und Breaks. Schüsse senken die Musik kurz ab. Versteckte Tabs stoppen Stimmen und Scheduler; beim Zurückkehren wird kein Musik-Rückstand abgespielt.
+
+### Engine aktualisieren
+1. `python tools/update_blackline.py /pfad/zur/neuen-engine.html` (auch eigenständiges UMD-JavaScript möglich).
+2. API-Änderungen anhand der neuen Dokumentation in `audio.js` berücksichtigen; Engine-Datei nicht direkt ändern. Neue Waffen bei Bedarf in `weapons.js` balancieren.
+3. `node tests/regression.cjs` und `node tests/audio.cjs` ausführen. Die Audio-Prüfung validiert alle Profile dynamisch; bei geändertem Katalog die explizite erwartete Anzahl im Spieltest aktualisieren.
+4. Cache-Versionen der Scripts in `index.html` erhöhen und veröffentlichen. Bei inkompatiblen Spieländerungen `protocol` und `gameVersion` gemeinsam erhöhen. Beide Geräte neu laden und neue Verbindungscodes austauschen.
+
+`vendor/blackline-version.json` dokumentiert Version und SHA-256 der importierten Originalquelle. Der Verbindungsaufbau prüft zusätzlich Engine-Version und Katalog-IDs. Die Audio-Tests prüfen PCM-Determinismus und endliche Samples, den echten Engine-Graphen gegen eine Web-Audio-Testoberfläche, Pump-Mechanik, räumliche Parameter und Voice-Cleanup. Klangqualität und Handy-Leistung brauchen zusätzlich Hörtests auf dem Zielgerät.

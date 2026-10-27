@@ -36,7 +36,7 @@ const run=s=>vm.runInContext(s,ctx);
  run('equipNearby(0,2)');assert.equal(run('ps[0].weapon'),'mp5');
  run("weaponDrops=[{id:101,x:900,y:100,weapon:'p90',ttl:30}];equipNearby(0,3)");assert.equal(run('ps[0].weapon'),'mp5','out of range pickup rejected');
  run("reset();mode='online';role='host';ps[0].weapon='mossberg590';fire(0)");assert.equal(run('bullets.length'),8);assert.equal(run('eventLog.filter(e=>e.kind==="shot").length'),1,'shotgun emits one acoustic shot');
- assert.equal(run('new Set(Array.from({length:WeaponSystem.ids.length},WeaponSystem.bag())).size'),18,'shuffle bag includes every profile');
+ assert.equal(run('new Set(Array.from({length:WeaponSystem.ids.length},WeaponSystem.bag())).size'),19,'shuffle bag includes every profile');
  assert.equal(run('validState({ps,bullets,scores,weaponDrops:[{id:1,x:100,y:100,ttl:30,weapon:"unknown"}]})'),false,'unknown profiles rejected');
  run("reset();mode='online';role='host';ps[0].ammo=1;fire(0);ps[0].cool=0;fire(0)");assert.equal(run('ps[0].ammo'),0);assert.equal(run('bullets.length'),1,'empty magazine cannot fire');assert.ok(run('ps[0].reloading')>0,'empty gun reloads automatically');
  const reserveBefore=run('ps[0].reserve');run('for(let j=0;j<180;j++)simulate(.01)');assert.equal(run('ps[0].ammo'),17);assert.equal(run('ps[0].reserve'),reserveBefore-17);
@@ -48,6 +48,7 @@ const run=s=>vm.runInContext(s,ctx);
  run('ps[0].dead=.01;simulate(.02)');assert.equal(run('ps[0].ammo'),6,'respawn keeps correct weapon capacity');
  run("reset();mode='online';role='host';ps[0].x=180;ps[0].y=160;ps[0].a=0;fire(0);simulate(.02)");assert.equal(run('bullets.length'),0,'wall absorbs bullet on first contact');assert.equal(run('eventLog.some(e=>e.kind==="bounce")'),false);
  assert.equal(run('validState({ps:ps.map(p=>({...p,ammo:-1})),bullets:[],scores,weaponDrops})'),false,'invalid ammo rejected');
+ run("reset();mode='online';role='host';weaponDrops=[{id:1,x:ps[0].x,y:ps[0].y,weapon:'barrett82',ttl:30}];equipNearby(0,1);ps[0].cool=0;fire(0)");assert.equal(run('ps[0].ammo'),9);assert.equal(run('bullets[0].damage'),80);assert.equal(run('ps[0].reserve'),30);
  run('close()');
  // Projection must map an aiming point back to its floor position through the lens.
  run("const r=Object.create(ArenaRenderer.prototype);r.canvas={width:1000,height:650,getBoundingClientRect:()=>({left:0,top:0,width:1000,height:650})};r.view=[560,365];r.shake=[0,0];r.lens=.14;const p=r.project(700,430);const q=r.unproject(p.x,p.y);if(Math.hypot(q.x-700,q.y-430)>.1)throw Error('lens aiming mismatch')");

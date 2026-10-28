@@ -74,3 +74,6 @@ Schüsse bleiben synchron vom tatsächlichen Gameplay-Ereignis ausgelöst. Der n
 - `node tests/audio.cjs`: BLACKLINE-Profile, Actions, PCM, räumliche Parameter und Cleanup.
 
 Referenz: https://peerjs.com/client/getting-started und https://peerjs.com/client/api/peer. PeerJS vermittelt WebRTC; es ersetzt keinen TURN-Relay für restriktive Netze. Die eingebauten PeerJS-Relay-Adressen bleiben erhalten; ein eigener Relay-Dienst wird nicht betrieben. Echte Verbindungen müssen zusätzlich in den verwendeten Browsern und Netzwerken geprüft werden.
+
+### Live-Abnahme am 28.10.2026
+GitHub Pages lädt die lokale PeerJS-Distribution. Ein echter Host wurde beim PeerJS-Server registriert und erhielt Code und Link. Der Gast konnte den Host erreichen; das erste Live-Problem mit dem Serializer wurde korrigiert (`raw` ist der tatsächliche Wert in 1.5.5, nicht `none`). Im verwendeten Cloud-Browser endete die ICE-Suche jedoch mit `complete`, `0` lokalen Kandidaten und ohne offenen Datenkanal. Der 25-Sekunden-Timeout und die weiterhin offene Host-Lobby wurden geprüft. Ein erfolgreiches Duell zwischen zwei realen Geräten bzw. getrennten Netzen ist damit ausdrücklich noch nicht nachgewiesen. Die sichtbare ICE-Diagnose enthält nur Status und Kandidatenzahl, keine IP-Adressen.

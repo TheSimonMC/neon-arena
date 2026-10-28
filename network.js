@@ -40,7 +40,7 @@ function begin(kind,code){
    if(!current(peer,generation))return;clearTimeout(registrationTimer);clearTimeout(retryTimer);signalingRetries=0;
    if(mode==='online'){status('Verbunden. Lobby-Server wieder erreichbar.');return;}
    if(kind==='host'){lobbyCode=room;mode=ch?'connecting':'waiting';status('Lobby '+room+' ist bereit. Code oder Link teilen und diesen Tab geöffnet lassen.');controls();}
-   else if(!ch){mode='connecting';status('Suche Lobby und verbinde mit '+room+' …');controls();wire(peer.connect('neon-arena-'+room,{label:'neon-arena',serialization:'none',reliable:false,metadata:{protocol:NET_PROTOCOL,engine:WeaponSystem.signature}}),peer,generation);}
+   else if(!ch){mode='connecting';status('Suche Lobby und verbinde mit '+room+' …');controls();try{wire(peer.connect('neon-arena-'+room,{label:'neon-arena',serialization:'raw',reliable:false,metadata:{protocol:NET_PROTOCOL,engine:WeaponSystem.signature}}),peer,generation)}catch(error){fail('Datenverbindung konnte nicht erstellt werden: '+error.message)}}
   });
   peer.on('connection',connection=>{if(!current(peer,generation)){connection.close();return;}if(kind!=='host'){rejectConnection(connection,'Diese Sitzung ist keine Host-Lobby.');return;}if(ch){rejectConnection(connection,'Lobby ist voll. Es können genau zwei Spieler teilnehmen.');return;}wire(connection,peer,generation);});
   peer.on('error',error=>{if(!current(peer,generation))return;if(error.type==='peer-unavailable'||error.type==='webrtc'){connectionLost(errorText(error));return;}if(mode==='online'&&['network','socket-error','socket-closed','server-error'].includes(error.type)){status('Spiel verbunden, Lobby-Server derzeit nicht erreichbar.');return;}fail(errorText(error));});
@@ -94,5 +94,7 @@ el('solo').onclick=startSolo;
 el('disconnect').onclick=()=>{close();mode='idle';controls();status('Getrennt. Du kannst eine neue Lobby öffnen.');};
 async function copyLobby(link){if(!lobbyCode)return;const field=el(link?'roomLink':'roomCode');try{await navigator.clipboard.writeText(field.value);status(link?'Einladungslink kopiert.':'Lobby-Code kopiert.')}catch{field.focus();field.select();status('Bitte den markierten Code oder Link manuell kopieren.');}}
 el('copy').onclick=()=>copyLobby(false);el('copyLink').onclick=()=>copyLobby(true);
-window.addEventListener('DOMContentLoaded',()=>{controls();if(location.hash.startsWith('#room=')){try{el('joinCode').value=parseRoom(location.href);showNetwork();status('Einladung geladen. Auf BEITRETEN klicken.')}catch(e){showFailure(e.message)}}});
+function loadInvitation(){if(location.hash.startsWith('#room=')){try{el('joinCode').value=parseRoom(location.href);showNetwork();status('Einladung geladen. Auf BEITRETEN klicken.')}catch(e){showFailure(e.message)}}}
+window.addEventListener('DOMContentLoaded',()=>{controls();loadInvitation()});
+window.addEventListener('hashchange',loadInvitation);
 window.addEventListener('pagehide',close);

@@ -5,19 +5,20 @@ Statisches Browser-Spiel für GitHub Pages. Kein Build und keine Anmeldung nöti
 ## Spielen
 WASD bewegen, Maus zielen, Linksklick schießen. Solo oder zwei Spieler.
 
-## Multiplayer
-1. Beide öffnen dieselbe Spielversion.
-2. Host klickt „Host erstellen“ und schickt seinen vollständigen Code an den Gast.
-3. Gast fügt den Code ein und klickt „Code übernehmen“ (oder vorher „Beitreten“).
-4. Gast schickt seinen Antwortcode zurück. Host übernimmt ihn.
-5. Host spielt Cyan, Gast Pink. Der Host berechnet den Spielzustand.
+## Multiplayer mit PeerJS
+1. Beide öffnen die aktuelle Seite. Der Host klickt MULTIPLAYER und LOBBY ERSTELLEN.
+2. Erst wenn PeerJS die Lobby registriert hat, erscheint ein 8-stelliger Code samt Einladungslink.
+3. Der Gast öffnet den Link oder gibt den Code ein und klickt BEITRETEN. Kein Antwortcode nötig.
+4. Beide bleiben auf der Seite. Nach Versionsprüfung startet das Duell automatisch.
 
-Bei jedem Neuverbinden neue Codes austauschen. Codes enthalten Netzwerkadressen.
+PeerJS 1.5.5 ist fest versioniert lokal unter `vendor/peerjs.min.js` eingebunden. Damit hängt das Laden des Clients nicht von einem externen CDN ab. Standardmäßig vermittelt PeerJS Cloud über HTTPS/WSS Port 443 die Verbindung. Optional lässt sich ein eigener PeerServer-Hostname mit HTTPS-Port 443 und Pfad `/` eintragen. Beide Teilnehmer müssen denselben Server verwenden. Lobby-Codes sind zufällige Einladungskennungen, keine Identitätsprüfung oder Passwörter. Keine öffentlichen Lobby-Listen.
+
+Der Host berechnet die Welt; der Gast sendet nur Eingaben. Der Datenkanal verwendet JSON-Strings ohne zusätzliche PeerJS-Serialisierung. Ein eigener Hello/Ready-Handshake prüft Spielprotokoll 6 und BLACKLINE-Katalog. Veraltete Verbindungscodes funktionieren nicht mehr. Registrierung bricht nach 20 Sekunden, Datenverbindung nach 25 Sekunden ab. Ein Heartbeat erkennt stumme Verbindungen nach 15 Sekunden. Bei Gast-Abbruch bleibt eine registrierte Host-Lobby für einen neuen Versuch bestehen; die Runde beginnt dann neu. Eine dritte Verbindung wird abgewiesen. Alte Callbacks können keine beendete Sitzung wieder öffnen.
 
 ## TURN
-STUN ist vorkonfiguriert. In manchen Mobilfunk-, Firmen- und NAT-Netzwerken reicht eine direkte Verbindung nicht aus. Dafür unter „Netzwerk / TURN“ auf beiden Geräten einen erreichbaren TURN-Server, Benutzername und Passwort eintragen, danach neue Codes erzeugen. „Nur TURN“ erzwingt einen Relay-Test. Zugangsdaten werden nicht gespeichert oder in die Codes aufgenommen. Keine dauerhaften TURN-Geheimnisse ins öffentliche Repository schreiben.
+Die unveränderten ICE-Defaults von PeerJS 1.5.5 sind aktiv, einschließlich der dort angegebenen öffentlichen TURN-Server. Deren Verfügbarkeit ist nicht garantiert. In manchen Mobilfunk-, Firmen- und NAT-Netzwerken reicht eine direkte Verbindung nicht aus. Dafür unter „Netzwerk / TURN“ auf beiden Geräten einen erreichbaren TURN-Server, Benutzername und Passwort eintragen, danach neue Codes erzeugen. „Nur TURN“ erzwingt einen Relay-Test. Zugangsdaten werden nicht gespeichert oder in die Codes aufgenommen. Keine dauerhaften TURN-Geheimnisse ins öffentliche Repository schreiben.
 
-Es ist kein TURN-Dienst enthalten oder bereitgestellt. GitHub Pages hostet nur die statischen Dateien. Referenz: https://webrtc.org/getting-started/turn-server
+Es wird kein eigener TURN-Dienst betrieben. GitHub Pages hostet nur die statischen Dateien. Referenz: https://webrtc.org/getting-started/turn-server
 
 ## GitHub Pages
 Repository erstellen und diese Dateien auf den main-Branch übertragen. Unter Settings > Pages > Build and deployment: Deploy from a branch, main, / (root), Save. index.html liegt direkt im Repository-Wurzelverzeichnis.
@@ -25,7 +26,7 @@ Repository erstellen und diese Dateien auf den main-Branch übertragen. Unter Se
 ## Prüfung
 `node tests/regression.cjs` prüft Spielzustand, Verbindungswechsel, Eingabe-Timeout und Paketvalidierung mit simulierten Browser-APIs. Ein echter Verbindungsaufbau über zwei getrennte Netzwerke muss nach der Bereitstellung separat getestet werden.
 
-## 3D-Version (Protokoll 5)
+## 3D-Version (Protokoll 6)
 Echter WebGL-Renderer mit Perspektive und Tiefenpuffer, dreidimensionalen Gitterwänden und Spieler-Modellen. Ein Postprocessing-Pass erzeugt Bloom, einstellbare Fisheye-Verzerrung, leichte Farbsäume und eine Vignette. Keine externen JavaScript-Abhängigkeiten.
 
 - WASD / Pfeiltasten: Bewegung. Maus: Zielen. Linksklick: Feuern.
@@ -55,7 +56,7 @@ Alle 19 Profile aus BLACKLINE 0.4.0 sind verfügbar. Goldene Waffen spawnen zuf�
 
 `vendor/blackline-version.json` dokumentiert Version und SHA-256 der importierten Originalquelle. Der Verbindungsaufbau prüft zusätzlich Engine-Version und Katalog-IDs. Die Audio-Tests prüfen PCM-Determinismus und endliche Samples, den echten Engine-Graphen gegen eine Web-Audio-Testoberfläche, Pump-Mechanik, räumliche Parameter und Voice-Cleanup. Klangqualität und Handy-Leistung brauchen zusätzlich Hörtests auf dem Zielgerät.
 
-## Magazine, Nachladen und Mix (Version 5)
+## Magazine, Nachladen und Mix
 R oder die Touch-Taste lädt nach. Währenddessen kann nicht geschossen werden. Ein leeres Magazin lädt bei weiterem Feuer automatisch nach, solange Reserve vorhanden ist. Jede neue Waffe kommt mit einem vollen Magazin und drei weiteren Magazinfüllungen als begrenzter Reserve. Sind beide leer, muss eine neue Waffe aufgenommen werden. Respawn füllt die ausgerüstete Waffe wieder auf. Magazin und Reserve werden angezeigt und vom Host synchronisiert. Ein Waffenwechsel oder Tod bricht das Nachladen ab; doppelte Eingabepakete starten es nicht erneut. Zeiten und Kapazitäten sind Arcade-Regeln, keine Simulation vollständiger realer Ladeabläufe.
 
 Kein Ricochet: Wandtreffer entfernen das Geschoss sofort. Schüsse bleiben live prozedural über BLACKLINE berechnet, keine echten Waffenaufnahmen. Das neue Preset hebt Druckimpuls und unregelmäßige Textur an, reduziert metallisches Nachklingen und Hall. Treffer, Einschläge, Waffenaufnahme, Leerabzug und Magazinhandhabung verwenden kurze gefilterte Rauschimpulse statt tonaler Synth-Pings; beim Abschluss des Nachladens spielt BLACKLINE die Mechanik des jeweiligen Waffenprofils. Der Waffenpegel steigt von 0,34 auf 0,62, die Musik sinkt von 0,24 auf 0,14 und wird bei Schüssen auf 0,065 abgesenkt. Der Ausgang behält einen Kompressor für Pegelspitzen.
@@ -66,3 +67,10 @@ Unverändertes 0.4.0-Release samt Lizenz, API und TypeScript-Typen. Die neue Bar
 Der Adapter verwendet jetzt profilabhängige Actions für Nachladen, Waffenaufnahme und Leerabzug. Er fragt `getCapabilities()` ab: Magazin-, Trommel-, Clip- und Pump-Profile bekommen nur unterstützte Cues. Der Abschluss folgt dem autoritativen Nachladeereignis; ein abgebrochener Vorgang spielt kein späteres Abschlussgeräusch. Die bisherigen generischen Waffen-Cue-Puffer sind entfernt. Eigene Waffe: Nahperspektive ohne Entfernungsschwächung; Gegner: räumliche Weltquelle mit Deckungsdämpfung. `engine.resume()` initialisiert den neuen Worklet-Limiter einschließlich Engine-Fallback. Der Lautstärkemix bleibt erhalten.
 
 Schüsse bleiben synchron vom tatsächlichen Gameplay-Ereignis ausgelöst. Der neue optionale Synthese-Worker, Schalldämpfer-Effekt und Studio-Editor werden nicht als zusätzliche Spielmechaniken aktiviert. Die Engine enthält sie unverändert für spätere Erweiterungen. `legacyTrigger:true` integriert den Triggerkontakt pro Spielschuss; Pumpmechanik wird weiterhin separat ausgelöst. Mechanik zählt in 0.4.0 als Action, nicht als Schuss. Die Verbindung prüft weiterhin Engine-Version und Katalog; alte 0.3.0-Clients können daher nicht beitreten. Beide Seiten neu laden und neue Codes austauschen.
+
+## Prüfungen nach dem PeerJS-Umbau
+- `node tests/regression.cjs`: Bewegung, Treffer, Waffen, Nachladen, kurze Klicks, Spielfeld-Projektion.
+- `node tests/network.cjs`: zwei simulierte PeerJS-Clients, Registrierung, Link-/Codeformat, Handshake, Datenfluss, Timeout, alte Pakete, falsche Version, volle/fehlende Lobby, erneuter Beitritt, Signaling-Reconnect, Heartbeat und TURN-Einstellungen. Der Transport ist hierbei simuliert.
+- `node tests/audio.cjs`: BLACKLINE-Profile, Actions, PCM, räumliche Parameter und Cleanup.
+
+Referenz: https://peerjs.com/client/getting-started und https://peerjs.com/client/api/peer. PeerJS vermittelt WebRTC; es ersetzt keinen TURN-Relay für restriktive Netze. Die eingebauten PeerJS-Relay-Adressen bleiben erhalten; ein eigener Relay-Dienst wird nicht betrieben. Echte Verbindungen müssen zusätzlich in den verwendeten Browsern und Netzwerken geprüft werden.

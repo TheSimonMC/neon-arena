@@ -32,7 +32,7 @@ function begin(kind,code){
   if(typeof RTCPeerConnection!=='function')throw Error('WebRTC ist in diesem Browser nicht verfügbar.');
   if(typeof isSecureContext!=='undefined'&&!isSecureContext)throw Error('Bitte das Spiel über seine HTTPS-Adresse öffnen.');
   const options=peerOptions();if(kind==='guest'&&code===lobbyCode)throw Error('Du kannst deiner eigenen Lobby nicht beitreten.');
-  close();reset();role=kind;mode='preparing';controls();gameAudio.unlock();status('Verbindung zum Lobby-Server wird hergestellt …');
+  close();reset();el('netDetails').textContent='';role=kind;mode='preparing';controls();gameAudio.unlock();status('Verbindung zum Lobby-Server wird hergestellt …');
   const generation=networkGeneration,room=kind==='host'?randomRoom():code;
   const peer=pc=kind==='host'?new Peer('neon-arena-'+room,options):new Peer(options);
   registrationTimer=setTimeout(()=>{if(current(peer,generation))fail('Lobby-Server antwortet nicht (20 Sekunden). Netzwerk prüfen oder eigenen PeerServer verwenden.');},20000);
@@ -54,8 +54,11 @@ function begin(kind,code){
 function rejectConnection(connection,reason){let done=false;const timer=setTimeout(()=>connection.close(),4000);connection.on('error',()=>{clearTimeout(timer);connection.close()});connection.on('open',()=>{if(done)return;done=true;try{connection.send(JSON.stringify({type:'reject',reason}))}catch{}clearTimeout(timer);setTimeout(()=>connection.close(),300);});}
 function rawSend(connection,data){if(!connection?.open)return false;try{connection.send(JSON.stringify(data));return true}catch{return false}}
 function wire(connection,peer,generation){
- ch=connection;mode='connecting';controls();handshake={hello:false,ready:false};
+ ch=connection;mode='connecting';controls();status('Mitspieler gefunden. WebRTC-Datenverbindung wird aufgebaut …');handshake={hello:false,ready:false};
  const ours=()=>current(peer,generation)&&ch===connection;
+ const rtc=connection.peerConnection;
+ const diagnostics=()=>{if(!ours()||!rtc)return;const count=(rtc.localDescription?.sdp?.match(/^a=candidate:/gm)||[]).length;el('netDetails').textContent='ICE: '+(rtc.iceConnectionState||'new')+' · Adresssuche: '+(rtc.iceGatheringState||'new')+' · Netzwerkadressen: '+count;};
+ if(rtc?.addEventListener){for(const event of ['iceconnectionstatechange','icegatheringstatechange','icecandidate'])rtc.addEventListener(event,diagnostics);diagnostics();}
  const hello=()=>rawSend(connection,{type:'hello',protocol:NET_PROTOCOL,engine:WeaponSystem.signature,role});
  const activate=()=>{if(!ours()||!handshake.hello||!handshake.ready||mode==='online')return;clearTimeout(connectionTimer);clearInterval(helloTimer);mode='online';lastPacketAt=performance.now();controls();status('Verbunden! Du spielst '+(role==='host'?'CYAN.':'PINK.'));healthTimer=setInterval(()=>{if(!ours())return;if(performance.now()-lastPacketAt>15000){connectionLost('Keine Antwort vom Mitspieler seit 15 Sekunden.');return;}rawSend(connection,{type:'ping'});},1000);};
  connectionTimer=setTimeout(()=>{if(ours())connectionLost('Keine Spielverbindung nach 25 Sekunden. WebRTC könnte im Browser oder Netzwerk blockiert sein. Anderes Netzwerk oder eigenen TURN-Server testen.');},25000);
